@@ -120,7 +120,7 @@ export default function AboutTab() {
 
       <Section title={t("settings.about.info.title")} icon={Info}>
         <Row label={t("settings.about.info.authorLabel")} icon={User}>
-          <span className={styles.value}>Tomotsugu-dev</span>
+          <span className={styles.value}>yuansui486</span>
         </Row>
         <Row label={t("settings.about.info.licenseLabel")} icon={Scale}>
           <span className={styles.value}>MIT</span>
