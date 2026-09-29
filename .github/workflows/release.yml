@@ -87,8 +87,7 @@ jobs:
           releaseDraft: true
           args: ${{ matrix.args }}
           # Generate one manifest only after both platforms succeed.
-          uploadUpdaterJson: false
-          uploadUpdaterSignatures: true
+          includeUpdaterJson: false
       - name: Verify macOS universal binary and ad-hoc signature
         if: runner.os == 'macOS'
         run: |
