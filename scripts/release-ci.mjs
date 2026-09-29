@@ -24,9 +24,20 @@ function verifySignature(file) {
 }
 
 function draftRelease() {
-  const release = api(`releases/tags/${info.tag}`);
+  // REST's tag lookup excludes drafts; gh also looks up pending tags via GraphQL.
+  const release = JSON.parse(
+    gh(
+      "release",
+      "view",
+      info.tag,
+      "--repo",
+      REPOSITORY,
+      "--json",
+      "databaseId,isDraft,isPrerelease",
+    ),
+  );
   assert.ok(
-    release.draft,
+    release.isDraft,
     "Release is already public; publish a new version instead of replacing installed update assets",
   );
   return release;
@@ -85,12 +96,12 @@ if (process.argv[2] === "prepare") {
   }
   const release = draftRelease();
   assert.equal(
-    release.prerelease,
+    release.isPrerelease,
     info.prerelease,
     "Existing draft has a different prerelease setting",
   );
-  appendFileSync(process.env.GITHUB_OUTPUT, `release_id=${release.id}\n`);
-  console.log(`Validated ${info.tag} at ${sha}; draft ${release.id} is ready.`);
+  appendFileSync(process.env.GITHUB_OUTPUT, `release_id=${release.databaseId}\n`);
+  console.log(`Validated ${info.tag} at ${sha}; draft ${release.databaseId} is ready.`);
 } else if (process.argv[2] === "publish") {
   draftRelease();
   gh("release", "download", info.tag, "--repo", REPOSITORY, "--dir", dir);
