@@ -1,0 +1,76 @@
+# Recover a draft whose builds succeeded but whose final validation was interrupted.
+name: Verify existing release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing draft tag with successful Windows and macOS build steps"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  verify:
+    name: Verify existing builds and macOS package
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Require successful CI and both build steps for the tagged source
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {execFileSync} from 'node:child_process';
+          import {validateSource, REPOSITORY} from './scripts/release-lib.mjs';
+          validateSource(process.cwd(), process.env.RELEASE_TAG);
+          const sha=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          const api=p=>JSON.parse(execFileSync('gh',['api',`repos/${REPOSITORY}/${p}`],{encoding:'utf8'}));
+          const ci=api(`actions/workflows/ci.yml/runs?head_sha=${sha}&status=success`);
+          assert.ok(ci.workflow_runs.some(r=>r.head_sha===sha&&r.conclusion==='success'),'CI must pass on tagged source');
+          const runs=api(`actions/workflows/release.yml/runs?head_sha=${sha}&per_page=100`).workflow_runs;
+          let complete=false;
+          for(const run of runs.filter(r=>r.head_sha===sha&&r.status==='completed')){
+            const jobs=api(`actions/runs/${run.id}/jobs`).jobs;
+            if(['Build windows-latest','Build macos-14'].every(name=>jobs.some(j=>j.name===name&&j.steps.some(s=>s.name==='Build and upload signed artifacts to draft'&&s.conclusion==='success')))){complete=true;break;}
+          }
+          assert.ok(complete,'Both build steps must have succeeded in one completed release run');
+          const draft=JSON.parse(execFileSync('gh',['release','view',process.env.RELEASE_TAG,'--repo',REPOSITORY,'--json','isDraft'],{encoding:'utf8'}));
+          assert.ok(draft.isDraft,'Only draft releases may be finalized');
+          JS
+      - name: Download and verify universal app
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'hindsight_universal.app.tar.gz' --dir "$RUNNER_TEMP/release"
+          tar -xzf "$RUNNER_TEMP/release/hindsight_universal.app.tar.gz" -C "$RUNNER_TEMP/release"
+          APP="$RUNNER_TEMP/release/hindsight.app"
+          lipo "$APP/Contents/MacOS/hindsight" -verify_arch x86_64 arm64
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+  publish:
+    name: Verify signatures and publish complete draft
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: sudo apt-get update && sudo apt-get install -y minisign
+      - run: node scripts/release-ci.mjs publish

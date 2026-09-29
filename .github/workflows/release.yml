@@ -92,7 +92,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/hindsight.app"
-          lipo -verify_arch x86_64 arm64 "$APP/Contents/MacOS/hindsight"
+          lipo "$APP/Contents/MacOS/hindsight" -verify_arch x86_64 arm64
           codesign --verify --deep --strict --verbose=2 "$APP"
 
   publish:

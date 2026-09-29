@@ -47,6 +47,13 @@ configuration and rerun failed jobs. If source changes are needed, use a new
 version and tag; never move a tag already distributed to users. Published releases
 are not overwritten. Incomplete builds remain drafts and do not affect updates.
 
+If both package build steps succeeded but final validation was interrupted, the
+`Verify existing release` workflow can validate the existing draft without
+rebuilding. It requires successful CI and both build steps on the tagged commit,
+checks the downloaded macOS app's architectures and code signature, then uses the
+same update-signature and manifest checks before publishing. Do not use it to
+bypass a failed build or a genuine signature validation failure.
+
 Versions with a prerelease suffix such as `-beta.1` remain prereleases. Stable
 clients use `/releases/latest/download/latest.json` and therefore do not receive
 prereleases. The manifest maps both macOS architectures to the same universal
