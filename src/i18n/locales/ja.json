@@ -420,13 +420,6 @@
         "title": "情報",
         "authorLabel": "作者",
         "licenseLabel": "ライセンス"
-      },
-      "links": {
-        "title": "リンク",
-        "repoLabel": "GitHub リポジトリ",
-        "repoLink": "表示 →",
-        "feedbackLabel": "フィードバックと提案",
-        "feedbackLink": "送信 →"
       }
     }
   },

@@ -16,6 +16,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -71,6 +72,9 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Release tooling tests
+        run: node --test scripts/release.test.mjs
 
       - name: Unit tests
         run: npm test

@@ -38,17 +38,6 @@
   font-weight: var(--font-weight-500);
 }
 
-.link {
-  font-size: 13px;
-  color: var(--color-accent);
-  font-weight: var(--font-weight-medium);
-  transition: opacity 160ms ease-out;
-}
-
-.link:hover {
-  opacity: 0.7;
-}
-
 .checkBtn {
   display: inline-flex;
   align-items: center;
@@ -147,4 +136,3 @@
     overflow: visible;
   }
 }
-

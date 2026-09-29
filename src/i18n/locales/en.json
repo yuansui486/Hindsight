@@ -420,13 +420,6 @@
         "title": "Info",
         "authorLabel": "Author",
         "licenseLabel": "License"
-      },
-      "links": {
-        "title": "Links",
-        "repoLabel": "GitHub repository",
-        "repoLink": "View →",
-        "feedbackLabel": "Feedback & suggestions",
-        "feedbackLink": "Submit →"
       }
     }
   },

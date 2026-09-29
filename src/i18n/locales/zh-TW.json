@@ -420,13 +420,6 @@
         "title": "資訊",
         "authorLabel": "作者",
         "licenseLabel": "許可證"
-      },
-      "links": {
-        "title": "連結",
-        "repoLabel": "GitHub 倉庫",
-        "repoLink": "檢視 →",
-        "feedbackLabel": "反饋與建議",
-        "feedbackLink": "提交 →"
       }
     }
   },

@@ -14,14 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases">
-    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tomotsugu-dev/Hindsight?color=blue&logo=github">
+  <a href="https://github.com/yuansui486/Hindsight/releases">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/yuansui486/Hindsight?color=blue&logo=github">
   </a>
   <a href="https://github.com/Tomotsugu-dev/Hindsight/stargazers">
     <img alt="GitHub Stars" src="https://img.shields.io/github/stars/Tomotsugu-dev/Hindsight?style=flat&logo=github&color=yellow">
   </a>
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml">
-    <img alt="CI" src="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml/badge.svg">
+  <a href="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml/badge.svg">
   </a>
   <a href="LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
@@ -33,13 +33,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases"><b>Download latest</b></a> ·
+  <a href="https://github.com/yuansui486/Hindsight/releases"><b>Download latest</b></a> ·
   <a href="#interface-preview">Interface Preview</a> ·
   <a href="#key-features">Key Features</a> ·
   <a href="#quick-start">Quick Start</a>
 </p>
 
 ---
+
+Company distribution: see [release and signing instructions](docs/company-release.md).
 
 ## Interface Preview
 
@@ -111,7 +113,7 @@ To fix exactly these gaps, I built Hindsight.
 
 ## Quick Start
 
-Download the installer for your platform from [Releases](https://github.com/Tomotsugu-dev/Hindsight/releases) and install it.
+Download the installer for your platform from [Releases](https://github.com/yuansui486/Hindsight/releases) and install it.
 
 ### Windows
 

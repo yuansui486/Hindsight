@@ -14,14 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases">
-    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tomotsugu-dev/Hindsight?color=blue&logo=github">
+  <a href="https://github.com/yuansui486/Hindsight/releases">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/yuansui486/Hindsight?color=blue&logo=github">
   </a>
   <a href="https://github.com/Tomotsugu-dev/Hindsight/stargazers">
     <img alt="GitHub Stars" src="https://img.shields.io/github/stars/Tomotsugu-dev/Hindsight?style=flat&logo=github&color=yellow">
   </a>
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml">
-    <img alt="CI" src="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml/badge.svg">
+  <a href="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml/badge.svg">
   </a>
   <a href="../../../LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
@@ -33,7 +33,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases"><b>下载最新版</b></a> ·
+  <a href="https://github.com/yuansui486/Hindsight/releases"><b>下载最新版</b></a> ·
   <a href="#界面预览">界面预览</a> ·
   <a href="#主要功能">主要功能</a> ·
   <a href="#快速开始">快速开始</a>
@@ -111,7 +111,7 @@
 
 ## 快速开始
 
-从 [Releases](https://github.com/Tomotsugu-dev/Hindsight/releases) 下载对应平台的安装包并安装。
+从 [Releases](https://github.com/yuansui486/Hindsight/releases) 下载对应平台的安装包并安装。
 
 ### Windows
 

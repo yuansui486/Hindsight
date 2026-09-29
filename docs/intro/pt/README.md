@@ -14,14 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases">
-    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tomotsugu-dev/Hindsight?color=blue&logo=github">
+  <a href="https://github.com/yuansui486/Hindsight/releases">
+    <img alt="GitHub Release" src="https://img.shields.io/github/v/release/yuansui486/Hindsight?color=blue&logo=github">
   </a>
   <a href="https://github.com/Tomotsugu-dev/Hindsight/stargazers">
     <img alt="GitHub Stars" src="https://img.shields.io/github/stars/Tomotsugu-dev/Hindsight?style=flat&logo=github&color=yellow">
   </a>
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml">
-    <img alt="CI" src="https://github.com/Tomotsugu-dev/Hindsight/actions/workflows/ci.yml/badge.svg">
+  <a href="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/yuansui486/Hindsight/actions/workflows/ci.yml/badge.svg">
   </a>
   <a href="../../../LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
@@ -33,7 +33,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Tomotsugu-dev/Hindsight/releases"><b>Baixar a versão mais recente</b></a> ·
+  <a href="https://github.com/yuansui486/Hindsight/releases"><b>Baixar a versão mais recente</b></a> ·
   <a href="#prévia-da-interface">Prévia da interface</a> ·
   <a href="#principais-recursos">Principais recursos</a> ·
   <a href="#começo-rápido">Começo rápido</a>
@@ -111,7 +111,7 @@ Foi para preencher exatamente essas lacunas que criei o Hindsight.
 
 ## Começo rápido
 
-Baixe o instalador da sua plataforma em [Releases](https://github.com/Tomotsugu-dev/Hindsight/releases) e instale.
+Baixe o instalador da sua plataforma em [Releases](https://github.com/yuansui486/Hindsight/releases) e instale.
 
 ### Windows
 
