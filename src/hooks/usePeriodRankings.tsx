@@ -8,10 +8,10 @@ import { displayAppName } from "../utils/displayName";
 import { displayCategoryName } from "../utils/categoryName";
 import type { RankedItem } from "../components/RankedList/RankedList";
 
-/** 排行所需的每个数据源（每小时槽位 / 每日汇总）通用形状：
- *  只关心其 segments 数组的 categoryId + minutes。 */
+/** Shape shared by every ranking source (hour slots / day summaries): only the categoryId and
+ *  secs of each segment are used. */
 interface SegmentSource {
-  segments: { categoryId: string; minutes: number; secs: number }[];
+  segments: { categoryId: string; secs: number }[];
 }
 
 /**
@@ -41,7 +41,7 @@ export function usePeriodRankings(
       if (!a.categoryId) continue;
       const list = topAppsByCat.get(a.categoryId) ?? [];
       // AppStack 拿这串去查图标，必须用 iconProcess（合并组里的稳定代表名）；
-      // a.process 是组的 display_name，可能跟 app_icons 表里的 key 不一致。
+      // a.displayName 是组的 display_name，可能跟 app_icons 表里的 key 不一致。
       list.push(a.iconProcess);
       topAppsByCat.set(a.categoryId, list);
     }
@@ -67,8 +67,8 @@ export function usePeriodRankings(
       const cat = getCategory(a.categoryId);
       const color = cat?.color ?? "#94a3b8";
       return {
-        id: a.process,
-        name: displayAppName(a.process),
+        id: a.groupId,
+        name: displayAppName(a.displayName),
         subtitle: cat ? displayCategoryName(cat, t) : undefined,
         color,
         minutes: a.minutes,

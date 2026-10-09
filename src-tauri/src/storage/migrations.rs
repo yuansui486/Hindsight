@@ -915,12 +915,35 @@ const WEBDAV_ACCOUNTS_TABLE_SQL: &str = r#"
     );
 "#;
 
+/// v41: Make obsolete `fun` assignments eligible for category backfill.
+const RESET_GROUPS_ON_DELETED_FUN_SQL: &str = r#"
+    UPDATE app_groups SET category_id = NULL
+     WHERE category_id = 'fun'
+       AND EXISTS (SELECT 1 FROM categories WHERE id = 'fun' AND deleted_at IS NOT NULL);
+"#;
+
+/// v42: website rules (ADR-0013). Each row assigns one website to a category,
+/// e.g. `bilibili.com` → Entertainment. An empty `browser` or `device` means the
+/// rule applies to all browsers or all devices. Removing a rule sets `deleted_at`
+/// instead of deleting the row.
+const SITE_RULES_TABLE_SQL: &str = r#"
+    CREATE TABLE IF NOT EXISTS site_rules (
+        host        TEXT NOT NULL,
+        browser     TEXT NOT NULL DEFAULT '',
+        device      TEXT NOT NULL DEFAULT '',
+        category_id TEXT NOT NULL,
+        updated_at  TEXT NOT NULL,
+        deleted_at  TEXT,
+        PRIMARY KEY (host, browser, device)
+    );
+"#;
+
 /// 跑全部待应用的 schema 迁移。幂等：已应用的版本号在 `schema_version` 表里查到就跳过。
 /// 启动期失败应中止应用启动（返回 `Err`，bootstrap.rs 用 `expect` 让 panic 立刻可见）。
 pub async fn run(pool: &DbPool) -> Result<()> {
     // v1..v10 是 MIGRATIONS 静态数组，v11+ 平台/运行时拼装放 extras。
     // 顺序就是版本顺序（idx + static_count + 1 = version）。
-    let extras: [&'static str; 30] = [
+    let extras: [&'static str; 32] = [
         CROSS_OS_CLEANUP_SQL,                  // v11
         V12_PLACEHOLDER,                       // v12（occupied，no-op）
         BACKFILL_OUTBOX_SQL,                   // v13
@@ -951,6 +974,8 @@ pub async fn run(pool: &DbPool) -> Result<()> {
         DROP_APP_CATEGORIES_SQL,               // v38
         ADD_AUTH_STATE_ACCOUNTS_SQL,           // v39
         WEBDAV_ACCOUNTS_TABLE_SQL,             // v40
+        RESET_GROUPS_ON_DELETED_FUN_SQL,       // v41
+        SITE_RULES_TABLE_SQL,                  // v42
     ];
     pool.0
         .call(move |conn| {
@@ -1056,7 +1081,7 @@ mod tests {
 
         assert_eq!(
             count(&pool, "SELECT COUNT(*) FROM schema_version").await,
-            40
+            42
         );
 
         let tables = table_names(&pool).await;
@@ -1078,6 +1103,7 @@ mod tests {
             "super_categories",
             "screenshot_dedup_map",
             "webdav_accounts",
+            "site_rules",
         ] {
             assert!(tables.iter().any(|x| x == t), "缺表 {t}(现有:{tables:?})");
         }
@@ -1138,6 +1164,93 @@ mod tests {
         assert!(count(&pool, "SELECT COUNT(*) FROM super_categories").await >= 4);
     }
 
+    /// v41:分类还是已删的 fun 的组改回空值,其他组不动,updated_at 都不变。
+    #[tokio::test]
+    async fn v41_resets_groups_on_deleted_fun() {
+        let pool = DbPool::open_in_memory().await.unwrap();
+        run(&pool).await.unwrap();
+        pool.0
+            .call(|conn| {
+                conn.execute_batch(
+                    "INSERT INTO app_groups(id, display_name, category_id, updated_at, deleted_at) VALUES
+                       ('Steam', 'Steam', 'fun', '2026-08-01T00:00:00Z', NULL),
+                       ('Code', 'Code', 'code', '2026-08-01T00:00:00Z', NULL);",
+                )
+                .db()?;
+                conn.execute_batch(RESET_GROUPS_ON_DELETED_FUN_SQL).db()?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            count(
+                &pool,
+                "SELECT COUNT(*) FROM app_groups
+                 WHERE id = 'Steam' AND category_id IS NULL
+                   AND updated_at = '2026-08-01T00:00:00Z'"
+            )
+            .await,
+            1,
+            "fun 应改回空值,updated_at 不变"
+        );
+        assert_eq!(
+            count(
+                &pool,
+                "SELECT COUNT(*) FROM app_groups
+                 WHERE id = 'Code' AND category_id = 'code'
+                   AND updated_at = '2026-08-01T00:00:00Z'"
+            )
+            .await,
+            1,
+            "其他分类的组不动"
+        );
+    }
+
+    /// v42:规则按 (host, browser, device) 认一行;browser、device 不填就是空字符串。
+    #[tokio::test]
+    async fn v42_site_rules_keyed_by_host_browser_device() {
+        let pool = DbPool::open_in_memory().await.unwrap();
+        run(&pool).await.unwrap();
+        let dup = pool
+            .0
+            .call(|conn| {
+                conn.execute_batch(
+                    "INSERT INTO site_rules(host, category_id, updated_at)
+                       VALUES ('bilibili.com', 'fun', '2026-10-07T00:00:00Z');
+                     INSERT INTO site_rules(host, browser, category_id, updated_at)
+                       VALUES ('bilibili.com', 'Safari', 'code', '2026-10-07T00:00:00Z');",
+                )
+                .db()?;
+                Ok(conn
+                    .execute(
+                        "INSERT INTO site_rules(host, category_id, updated_at)
+                         VALUES ('bilibili.com', 'code', '2026-10-07T00:00:00Z')",
+                        [],
+                    )
+                    .is_err())
+            })
+            .await
+            .unwrap();
+
+        assert!(dup, "同一个 (host, browser, device) 不能有两行");
+        assert_eq!(
+            count(
+                &pool,
+                "SELECT COUNT(*) FROM site_rules
+                 WHERE host = 'bilibili.com' AND browser = '' AND device = ''"
+            )
+            .await,
+            1,
+            "不填 browser、device 时是空字符串"
+        );
+        assert_eq!(
+            count(&pool, "SELECT COUNT(*) FROM site_rules").await,
+            2,
+            "同一个网站、不同浏览器可以各有一行"
+        );
+    }
+
     /// 幂等:重复 run 不报错、不重复应用(版本数不变、分类不重复种)。
     #[tokio::test]
     async fn run_twice_is_idempotent() {
@@ -1146,7 +1259,7 @@ mod tests {
         run(&pool).await.unwrap();
         assert_eq!(
             count(&pool, "SELECT COUNT(*) FROM schema_version").await,
-            40
+            42
         );
         assert_eq!(
             count(&pool, "SELECT COUNT(*) FROM categories WHERE id = 'code'").await,
@@ -1201,7 +1314,7 @@ mod tests {
 
         assert_eq!(
             count(&pool, "SELECT COUNT(*) FROM schema_version").await,
-            40
+            42
         );
         // 正常数据完好,且被 v26 回填了 remote_id
         assert_eq!(

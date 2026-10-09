@@ -50,6 +50,7 @@
       "today": "Diário",
       "week": "Semanal",
       "month": "Mensal",
+      "history": "Histórico",
       "aiSummary": "Resumo de IA",
       "aiSettings": "Ajustes IA",
       "categories": "Categorias",
@@ -459,6 +460,9 @@
       "expand": "Mostrar mais {{count}}",
       "collapse": "Recolher"
     },
+    "insightTiles": {
+      "appShare": "Parte da sua categoria"
+    },
     "segmentList": {
       "empty": "Nenhum segmento ainda — clique em \"Adicionar segmento\" abaixo para começar",
       "newSegmentLabel": "Novo segmento",
@@ -534,7 +538,11 @@
         "categoriesTitle": "Categorias",
         "appsTitle": "Principais aplicativos",
         "topNCount": "Top {{count}}"
-      }
+      },
+      "others": "{{count}} outros",
+      "ringsUp": "Categoria anterior",
+      "ringsDown": "Próxima categoria",
+      "wheelHint": "Que tal girar a roda do mouse?"
     },
     "dayNav": {
       "prev": "Dia anterior",
@@ -637,6 +645,46 @@
     },
     "selection": {
       "label": "{{month}}/{{day}} {{weekday}}"
+    }
+  },
+  "history": {
+    "title": "Todo o histórico",
+    "meta": "{{total}} no total · desde {{since}}",
+    "empty": "Ainda não há registros",
+    "loading": "Carregando…",
+    "tabs": {
+      "stats": "Estatísticas",
+      "search": "Pesquisar"
+    },
+    "chartTabs": {
+      "year": "Ano",
+      "month": "Mês"
+    },
+    "chart": {
+      "title": "Atividade diária",
+      "hint": "Experimente arrastar sobre alguns dias no mapa de calor para ampliar seu uso nesse período",
+      "resetZoom": "Redefinir zoom"
+    },
+    "nav": {
+      "prevYear": "Ano anterior",
+      "nextYear": "Próximo ano",
+      "backToThisYear": "Voltar a este ano"
+    },
+    "heatmap": {
+      "less": "Menos",
+      "more": "Mais",
+      "cell": "{{date}} · {{duration}}"
+    },
+    "superCategories": "Supercategorias",
+    "apps": "Aplicativos",
+    "path": {
+      "label": "Escopo atual",
+      "all": "Tudo",
+      "clearDay": "Limpar o dia selecionado"
+    },
+    "app": {
+      "firstLast": "Primeiro uso: {{first}} · Último uso: {{last}}",
+      "dayDetail": "Detalhes do dia"
     }
   },
   "apps": {
@@ -1235,8 +1283,7 @@
       "daily": "Diário",
       "week": "Semanal",
       "month": "Mensal",
-      "debug": "Depuração",
-      "search": "Pesquisar"
+      "debug": "Depuração"
     },
     "placeholder": {
       "hint": "Recurso em desenvolvimento."

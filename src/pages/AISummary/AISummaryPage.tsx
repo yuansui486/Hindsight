@@ -1,15 +1,14 @@
 import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { type TabDef } from "../../components/TabNav/TabNav";
-import { FloatingTabNav } from "../../components/TabNav/FloatingTabNav";
+import { PageHeader } from "../../components/PageHeader/PageHeader";
 import { DebugStateProvider } from "./DebugStateContext";
 import styles from "./AISummaryPage.module.css";
 
-/** Tab 配置：分 3 组用竖线分隔，视觉上区分语义不同的 tab：
+/** Tab 配置：分 2 组用竖线分隔，视觉上区分语义不同的 tab：
  *  - 时间维度报告：日报 / 周报 / 月报
- *  - 搜索：屏幕记忆全文检索（回顾域的点查工具，不占侧栏导航位）
  *  - 调试：跑总结 + 看结果（旧版"调试设置"已删，参数直接走 AI 设置主页）
- *  对话已提升为独立侧栏页面（/chat）。
+ *  对话已提升为独立侧栏页面（/chat），搜索搬到了全部历史（/history/search）。
  */
 const TAB_GROUPS: TabDef[][] = [
   [
@@ -17,7 +16,6 @@ const TAB_GROUPS: TabDef[][] = [
     { to: "week", labelKey: "aiSummary.tabs.week" },
     { to: "month", labelKey: "aiSummary.tabs.month" },
   ],
-  [{ to: "search", labelKey: "aiSummary.tabs.search" }],
   [{ to: "debug", labelKey: "aiSummary.tabs.debug" }],
 ];
 
@@ -30,12 +28,8 @@ export default function AISummaryPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>{t("aiSummary.title")}</h1>
-      </header>
-
-      {/* FloatingTabNav：滚出视口顶端时让 pill 在视口顶部浮动居中显示。 */}
-      <FloatingTabNav groups={TAB_GROUPS} ariaLabel={t("aiSummary.title")} />
+      {/* tab 条在标题行右边；滚出视口顶端时在视口顶部浮动居中显示（FloatingTabNav） */}
+      <PageHeader title={t("aiSummary.title")} groups={TAB_GROUPS} />
 
       <section className={styles.tabContent}>
         <DebugStateProvider>

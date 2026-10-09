@@ -1,22 +1,24 @@
 import { invoke } from "@tauri-apps/api/core";
 import { logError } from "../lib/logger";
 
-export interface HourSegment {
+/** One category's time in an hour or a day. */
+export interface CategoryTime {
   categoryId: string;
-  /** 显示用整数分钟（每桶各自四舍五入）。求总和用 secs——逐桶取整再相加会系统性偏差。 */
-  minutes: number;
-  /** 未取整秒数。所有"总时长/日均/占比"从这里累加、最后一步再换算分钟。 */
+  /** Seconds before rounding. Add these up and convert to minutes only at the end. */
   secs: number;
 }
 
 export interface HourSlot {
   hour: number;
-  segments: HourSegment[];
+  segments: CategoryTime[];
 }
 
 export interface AppUsage {
-  /** 显示名：组的 display_name（合并组内多个进程名） */
-  process: string;
+  /** App name shown to the user: the group's display name, or the process name when ungrouped. */
+  displayName: string;
+  /** The app group this row adds up; an ungrouped process is its own group, keyed by its name.
+   * Two unmerged groups can share a display name, so use this, not `displayName`, as the key. */
+  groupId: string;
   categoryId: string;
   minutes: number;
   /** AppIcon 用来查图标的代表 process_name；合并组里取一个稳定成员名 */
@@ -48,12 +50,12 @@ export interface TitleUsage {
 
 export interface DaySummaryDto {
   date: string;
-  segments: HourSegment[];
+  segments: CategoryTime[];
 }
 
 export interface DaySummary {
   date: Date;
-  segments: HourSegment[];
+  segments: CategoryTime[];
 }
 
 export function dtoToDaySummary(dto: DaySummaryDto): DaySummary {
@@ -781,18 +783,18 @@ export const api = {
     deviceId?: string,
   ) =>
     invoke<AppUsage[]>("get_hour_apps", { dayOffset, hour, limit, deviceId }),
-  getAppDayDetail: (dayOffset: number, iconProcess: string, deviceId?: string) =>
-    invoke<AppDetail>("get_app_day_detail", { dayOffset, iconProcess, deviceId }),
-  getAppWeekDetail: (weekOffset: number, iconProcess: string, deviceId?: string) =>
-    invoke<AppDetail>("get_app_week_detail", { weekOffset, iconProcess, deviceId }),
+  getAppDayDetail: (dayOffset: number, groupId: string, deviceId?: string) =>
+    invoke<AppDetail>("get_app_day_detail", { dayOffset, groupId, deviceId }),
+  getAppWeekDetail: (weekOffset: number, groupId: string, deviceId?: string) =>
+    invoke<AppDetail>("get_app_week_detail", { weekOffset, groupId, deviceId }),
   getAppMonthDetail: (
     monthOffset: number,
-    iconProcess: string,
+    groupId: string,
     deviceId?: string,
   ) =>
     invoke<AppDetail>("get_app_month_detail", {
       monthOffset,
-      iconProcess,
+      groupId,
       deviceId,
     }),
   getWeekDays: (weekOffset: number, deviceId?: string) =>
@@ -803,6 +805,20 @@ export const api = {
     invoke<DaySummaryDto[]>("get_month_days", { monthOffset, deviceId }),
   getMonthApps: (monthOffset: number, limit?: number, deviceId?: string) =>
     invoke<AppUsage[]>("get_month_apps", { monthOffset, limit, deviceId }),
+  /** 全部历史页：from..to（含两端，"YYYY-MM-DD"）每天各分类的时长，每天一项 */
+  getRangeCategoryTime: (from: string, to: string, deviceId?: string) =>
+    invoke<DaySummaryDto[]>("get_range_category_time", { from, to, deviceId }),
+  /** 全部历史页：from..to 内每个应用的总时长，不截断 */
+  getRangeApps: (from: string, to: string, deviceId?: string) =>
+    invoke<AppUsage[]>("get_range_apps", { from, to, deviceId }),
+  /** 全部历史页：一个应用在 from..to 内每天的时长 + 窗口标题用时 */
+  getAppRangeDetail: (
+    from: string,
+    to: string,
+    groupId: string,
+    deviceId?: string,
+  ) =>
+    invoke<AppDetail>("get_app_range_detail", { from, to, groupId, deviceId }),
   listCategories: () => invoke<Category[]>("list_categories"),
   createCategory: (input: CategoryInput) =>
     invoke<Category>("create_category", { input }),

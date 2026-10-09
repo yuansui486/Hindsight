@@ -8,12 +8,13 @@ export interface PeriodInsights {
   /** 当期峰值 slot 的展示文本 + 该 slot 分钟数。null = 当期空 */
   peak: { label: string; minutes: number } | null;
   /**
-   * 第三 tile：默认 = 主力大类，drill 时 = 当前大类下 top 小分类。
+   * 第三 tile：默认 = 主力大类，drill 时 = 当前大类下 top 小分类，
+   * 鼠标停在某个应用上时 = 这个应用占所属小类的比例（见 useAppFocus）。
    * kind 区分 label 走哪个 i18n key。
    */
   third:
     | {
-        kind: "dominant" | "composition";
+        kind: "dominant" | "composition" | "appShare";
         name: string;
         color: string;
         pct: number;
@@ -22,7 +23,7 @@ export interface PeriodInsights {
 }
 
 interface SegmentSource {
-  segments: { categoryId: string; minutes: number; secs: number }[];
+  segments: { categoryId: string; secs: number }[];
 }
 
 interface UseInsightsArgs<T extends SegmentSource> {
@@ -41,7 +42,7 @@ interface UseInsightsArgs<T extends SegmentSource> {
 }
 
 function sumMinutes(sources: SegmentSource[]): number {
-  // 累秒后取整——与 top-apps / 页面头部总时长同口径（见 HourSegment.secs 注释）
+  // 累秒后取整——与 top-apps / 页面头部总时长同口径（见 CategoryTime.secs 注释）
   let secs = 0;
   for (const src of sources) {
     for (const seg of src.segments) secs += seg.secs;

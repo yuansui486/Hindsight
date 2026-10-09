@@ -17,6 +17,9 @@
   <a href="https://github.com/yuansui486/Hindsight/releases">
     <img alt="Versión en GitHub" src="https://img.shields.io/github/v/release/yuansui486/Hindsight?color=blue&logo=github">
   </a>
+  <a href="https://github.com/yuansui486/Hindsight/releases">
+    <img alt="Descargas en GitHub" src="https://img.shields.io/github/downloads/yuansui486/Hindsight/total?style=flat&logo=github&color=brightgreen">
+  </a>
   <a href="https://github.com/Tomotsugu-dev/Hindsight/stargazers">
     <img alt="Estrellas en GitHub" src="https://img.shields.io/github/stars/Tomotsugu-dev/Hindsight?style=flat&logo=github&color=yellow">
   </a>

@@ -35,6 +35,10 @@ interface RankedListProps {
   defaultLimit?: number;
   /** 传了则每行可点（进 app 详情）；不传保持纯展示（Week/Month 等不接） */
   onItemClick?: (item: RankedItem) => void;
+  /** 选中行的 id，该行高亮；只对可点的列表有效 */
+  selectedId?: string | null;
+  /** 鼠标移入 / 键盘聚焦某行时传这一行，移出时传 null；只对可点的列表有效 */
+  onItemHover?: (item: RankedItem | null) => void;
 }
 
 export function RankedList({
@@ -42,6 +46,8 @@ export function RankedList({
   totalMinutes,
   defaultLimit = 10,
   onItemClick,
+  selectedId,
+  onItemHover,
 }: RankedListProps) {
   const { t } = useTranslation();
   const isDark = useIsDark();
@@ -107,8 +113,13 @@ export function RankedList({
           <li key={item.id} className={styles.rowClickable}>
             <button
               type="button"
-              className={styles.rowBtn}
+              className={`${styles.rowBtn} ${item.id === selectedId ? styles.rowSelected : ""}`}
               onClick={() => onItemClick(item)}
+              onMouseEnter={onItemHover && (() => onItemHover(item))}
+              onMouseLeave={onItemHover && (() => onItemHover(null))}
+              onFocus={onItemHover && (() => onItemHover(item))}
+              onBlur={onItemHover && (() => onItemHover(null))}
+              aria-pressed={selectedId === undefined ? undefined : item.id === selectedId}
             >
               {inner}
             </button>

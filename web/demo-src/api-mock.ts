@@ -42,6 +42,7 @@ import type {
   WeekPrecheckResp,
   AiOverrides,
 } from "@app/api/hindsight";
+import { barMinutes } from "@app/lib/segments";
 
 // 重新导出原 api 模块里的 helper 函数（DTO → 内部类型转换）
 // 主仓库代码会直接 import { dtoToDaySummary } from "@app/api/hindsight"
@@ -184,6 +185,19 @@ function isoDateOffset(dayOffset: number): string {
   return ymd(d);
 }
 
+/** "YYYY-MM-DD" 的 from..to → 每一天相对今天的 dayOffset（含两端） */
+function rangeOffsets(from: string, to: string): number[] {
+  const offsetOf = (key: string) => {
+    const [y, m, d] = key.split("-").map((s) => parseInt(s, 10));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((new Date(y, m - 1, d).getTime() - today.getTime()) / 86400000);
+  };
+  const out: number[] = [];
+  for (let o = offsetOf(from); o <= offsetOf(to); o++) out.push(o);
+  return out;
+}
+
 
 // ────────────────────────────────────────────
 // api 对象 —— 跟原 hindsight.ts 同样接口
@@ -218,7 +232,7 @@ export const api = {
     const hourCategoryIds = new Set(slot.segments.map((s) => s.categoryId));
     const hourApps = day.apps.filter((a) => hourCategoryIds.has(a.categoryId));
     // 估算 minute 比例（粗略，仅 demo 视觉用）
-    const hourTotal = slot.segments.reduce((s, x) => s + x.minutes, 0);
+    const hourTotal = barMinutes(slot.segments);
     const dayTotal = day.apps.reduce((s, a) => s + a.minutes, 0);
     const scale = dayTotal > 0 ? hourTotal / dayTotal : 0;
     const scaled = hourApps.map((a) => ({
@@ -250,15 +264,14 @@ export const api = {
       const segMap = new Map<string, number>();
       for (const slot of day.hours) {
         for (const seg of slot.segments) {
-          segMap.set(seg.categoryId, (segMap.get(seg.categoryId) ?? 0) + seg.minutes);
+          segMap.set(seg.categoryId, (segMap.get(seg.categoryId) ?? 0) + seg.secs);
         }
       }
       result.push({
         date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-        segments: Array.from(segMap.entries()).map(([categoryId, minutes]) => ({
+        segments: Array.from(segMap.entries()).map(([categoryId, secs]) => ({
           categoryId,
-          minutes,
-          secs: minutes * 60,
+          secs,
         })),
       });
     }
@@ -281,9 +294,9 @@ export const api = {
       const offset = Math.round((d.getTime() - today.getTime()) / (24 * 3600 * 1000));
       const day = mockDayFor(offset, deviceId);
       for (const a of day.apps) {
-        const cur = map.get(a.process);
+        const cur = map.get(a.groupId);
         if (cur) cur.minutes += a.minutes;
-        else map.set(a.process, { ...a });
+        else map.set(a.groupId, { ...a });
       }
     }
     const sorted = Array.from(map.values()).sort((a, b) => b.minutes - a.minutes);
@@ -321,15 +334,14 @@ export const api = {
       const segMap = new Map<string, number>();
       for (const slot of day.hours) {
         for (const seg of slot.segments) {
-          segMap.set(seg.categoryId, (segMap.get(seg.categoryId) ?? 0) + seg.minutes);
+          segMap.set(seg.categoryId, (segMap.get(seg.categoryId) ?? 0) + seg.secs);
         }
       }
       result.push({
         date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-        segments: Array.from(segMap.entries()).map(([categoryId, minutes]) => ({
+        segments: Array.from(segMap.entries()).map(([categoryId, secs]) => ({
           categoryId,
-          minutes,
-          secs: minutes * 60,
+          secs,
         })),
       });
     }
@@ -355,13 +367,47 @@ export const api = {
       if (offset > 0) continue;
       const day = mockDayFor(offset, deviceId);
       for (const a of day.apps) {
-        const cur = map.get(a.process);
+        const cur = map.get(a.groupId);
         if (cur) cur.minutes += a.minutes;
-        else map.set(a.process, { ...a });
+        else map.set(a.groupId, { ...a });
       }
     }
     const sorted = Array.from(map.values()).sort((a, b) => b.minutes - a.minutes);
     return limit ? sorted.slice(0, limit) : sorted;
+  },
+
+  // ─── 全部历史（from..to 是 "YYYY-MM-DD"，演示数据按天拼出来） ───
+  getRangeCategoryTime: async (
+    from: string,
+    to: string,
+    deviceId?: string,
+  ): Promise<DaySummaryDto[]> =>
+    rangeOffsets(from, to).map((offset) => {
+      const segMap = new Map<string, number>();
+      for (const slot of mockDayFor(offset, deviceId).hours) {
+        for (const seg of slot.segments) {
+          segMap.set(seg.categoryId, (segMap.get(seg.categoryId) ?? 0) + seg.secs);
+        }
+      }
+      return {
+        date: isoDateOffset(offset),
+        segments: Array.from(segMap, ([categoryId, secs]) => ({ categoryId, secs })),
+      };
+    }),
+  getRangeApps: async (
+    from: string,
+    to: string,
+    deviceId?: string,
+  ): Promise<AppUsage[]> => {
+    const map = new Map<string, AppUsage>();
+    for (const offset of rangeOffsets(from, to)) {
+      for (const a of mockDayFor(offset, deviceId).apps) {
+        const cur = map.get(a.groupId);
+        if (cur) cur.minutes += a.minutes;
+        else map.set(a.groupId, { ...a });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.minutes - a.minutes);
   },
 
   // ─── 分类 ──────────────────────────────────
@@ -769,19 +815,26 @@ export const api = {
   // ─── 应用详情钻取（日 24 小时柱 / 周 7 天柱 / 月 30 天柱） ───
   getAppDayDetail: async (
     _dayOffset: number,
-    iconProcess: string,
+    groupId: string,
     _deviceId?: string,
-  ): Promise<AppDetail> => mockAppDetail("hours", 24, iconProcess),
+  ): Promise<AppDetail> => mockAppDetail("hours", 24, groupId),
   getAppWeekDetail: async (
     _weekOffset: number,
-    iconProcess: string,
+    groupId: string,
     _deviceId?: string,
-  ): Promise<AppDetail> => mockAppDetail("days", 7, iconProcess),
+  ): Promise<AppDetail> => mockAppDetail("days", 7, groupId),
   getAppMonthDetail: async (
     _monthOffset: number,
-    iconProcess: string,
+    groupId: string,
     _deviceId?: string,
-  ): Promise<AppDetail> => mockAppDetail("days", 30, iconProcess),
+  ): Promise<AppDetail> => mockAppDetail("days", 30, groupId),
+  getAppRangeDetail: async (
+    from: string,
+    to: string,
+    groupId: string,
+    _deviceId?: string,
+  ): Promise<AppDetail> =>
+    mockAppDetail("days", rangeOffsets(from, to).length, groupId),
 
   // ─── Chat（演示回答） ────────────────────
   chatAsk: async (

@@ -7,7 +7,7 @@
 //! its groups back to unclassified; built-in categories and `other` cannot be
 //! deleted, since unclassified time needs somewhere to land.
 
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -422,14 +422,13 @@ pub async fn delete(pool: &DbPool, id: &str) -> Result<()> {
 /// `app_groups.category_id`. Runs for both local deletes and ones that arrive
 /// over sync.
 ///
+/// Website rules that assign a site to this category are soft-deleted too, so
+/// those sites count toward their browser's category again (ADR-0013).
+///
 /// Idempotent: every UPDATE is guarded, so a repeat run touches zero rows and
 /// enqueues nothing.
-///
-/// Expects to be called inside a transaction: the tombstone that triggered it
-/// and every group this clears have to land together. The parameter type does
-/// not enforce that yet.
 pub fn cascade_category_deletion(
-    conn: &Connection,
+    conn: &Transaction,
     category_id: &str,
     now: &str,
 ) -> rusqlite::Result<()> {
@@ -452,6 +451,13 @@ pub fn cascade_category_deletion(
         enqueue(conn, OutboxOp::Upsert, OutboxEntity::AppGroup, g, &payload)?;
     }
 
+    // Soft-delete website rules that point to this category.
+    conn.execute(
+        "UPDATE site_rules SET deleted_at = ?2, updated_at = ?2
+         WHERE category_id = ?1 AND deleted_at IS NULL",
+        rusqlite::params![category_id, now],
+    )?;
+
     Ok(())
 }
 
@@ -470,8 +476,8 @@ pub async fn assign_app(pool: &DbPool, process_name: &str, category_id: &str) ->
     crate::repo::app_groups::assign_category_for_process(pool, &p, Some(c)).await
 }
 
-/// Unassigns a category from an app. Goes through the app_groups channel: sets the
-/// group's category_id to NULL.
+/// Unassigns an app's category by marking its group as user-uncategorized
+/// (see [`crate::repo::app_groups::UNCATEGORIZED_BY_USER`]).
 pub async fn unassign_app(pool: &DbPool, process_name: &str) -> Result<()> {
     crate::repo::app_groups::assign_category_for_process(pool, process_name, None).await
 }
