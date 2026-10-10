@@ -816,7 +816,57 @@
     },
     "tabs": {
       "list": "Gestionar categorías",
-      "apps": "Asignar apps"
+      "apps": "Asignar apps",
+      "sites": "Asignar sitios"
+    },
+    "sites": {
+      "intro": "Da a cada dominio del navegador su propia categoría.",
+      "infoTipAria": "Cómo funcionan las categorías de sitios",
+      "infoTipBody": "Un dominio sin categoría sigue la categoría del navegador. Un subdominio sin categoría sigue la categoría de su dominio principal.",
+      "searchPlaceholder": "Buscar sitios",
+      "header": {
+        "site": "Sitio",
+        "domainCount_one": "{{count}} dominio en total",
+        "domainCount_other": "{{count}} dominios en total",
+        "last30d": "Últimos 30 días",
+        "total": "Todo el tiempo",
+        "category": "Categoría"
+      },
+      "follows": "Sigue a {{host}}",
+      "expand": "Mostrar subdominios",
+      "collapse": "Ocultar subdominios",
+      "subdomains_one": "{{count}} subdominio",
+      "subdomains_other": "{{count}} subdominios",
+      "otherCategory_one": "{{count}} en otra categoría",
+      "otherCategory_other": "{{count}} en otras categorías",
+      "removeRule": "Quitar la regla",
+      "loading": "Cargando…",
+      "empty": "Todavía no hay tiempo registrado en sitios. Los dominios solo se registran mientras “Registrar los dominios de los sitios” esté activado.",
+      "openPrivacy": "Abrir los ajustes de privacidad",
+      "noResults": "Ningún sitio coincide con tu búsqueda",
+      "clearSearch": "Borrar la búsqueda",
+      "allAssigned": "Todos los sitios tienen categoría",
+      "sort": {
+        "default": "Predeterminado",
+        "recentDesc": "Últimos 30 días ↓",
+        "recentAsc": "Últimos 30 días ↑",
+        "totalDesc": "Total ↓",
+        "totalAsc": "Total ↑",
+        "nameAsc": "Dominio A-Z",
+        "nameDesc": "Dominio Z-A"
+      },
+      "icons": {
+        "label": "Descargar iconos de sitios automáticamente",
+        "confirmTitle": "¿Activar la descarga de iconos de sitios?",
+        "confirmAction": "Activar descargas",
+        "saveFailed": "No se pudo guardar la configuración. Inténtalo de nuevo.",
+        "loadFailed": "No se pudieron cargar los iconos. La clasificación de sitios sigue disponible.",
+        "retry": "Reintentar",
+        "previewLabel": "Ejemplo del icono de YouTube",
+        "beforeDownload": "Antes",
+        "afterDownload": "Después",
+        "trafficNote": "Nota: descargar un icono de sitio consume unos 10–20 KB de datos."
+      }
     }
   },
   "aiSettings": {
@@ -927,9 +977,6 @@
       "sectionTitle": "Modelos",
       "sectionDesc": "El LLM que se usa para la inferencia local; los archivos GGUF se descargan de HuggingFace.",
       "toolbar": {
-        "capAll": "Todos",
-        "capVision": "Visión",
-        "capText": "Solo texto",
         "statusAll": "Todos",
         "statusInstalled": "Descargados",
         "statusNotInstalled": "Sin descargar",
@@ -937,7 +984,8 @@
         "sortDefault": "Orden predeterminado",
         "sortSizeAsc": "Tamaño ↑",
         "sortSizeDesc": "Tamaño ↓",
-        "sortName": "Nombre A-Z"
+        "sortName": "Nombre A-Z",
+        "sortReleased": "Fecha de publicación"
       },
       "cloud": {
         "cardTitle": "Nube · {{provider}}",
@@ -958,14 +1006,14 @@
         "resume": "Reanudar",
         "resumeTooltip": "Reanudar desde los {{size}} MB ya descargados.",
         "capsTooltips": {
-          "TEXT": "Generación de texto: escribir / continuar / resumir prosa.",
-          "VISION": "Multimodal: entiende entradas de imagen.",
-          "CODE": "Ajustado para código: mejor escribiendo y explicando código.",
-          "FAST": "Ligero (< 1 GB), la velocidad primero; ideal para el primer intento.",
-          "BALANCED": "Tamaño medio, equilibra calidad y velocidad para el uso diario.",
-          "REASONING": "Razonamiento profundo: pensamiento en varios pasos, matemáticas, planificación.",
-          "R1": "Familia DeepSeek R1: modelo de razonamiento entrenado con RL.",
-          "DEFAULT": "La mejor elección de Hindsight: el mejor equilibrio general."
+          "TEXT": "Genera texto",
+          "VISION": "Lee imágenes",
+          "CODE": "Código",
+          "FAST": "Prioriza la velocidad",
+          "BALANCED": "Equilibrado",
+          "REASONING": "Puede razonar",
+          "R1": "DeepSeek R1",
+          "DEFAULT": "Recomendado"
         },
         "step2": "Texto",
         "step2ToggleOnTooltip": "Usar este modelo para los resúmenes por tramos (Text). Sustituye la selección anterior.",
@@ -1100,6 +1148,29 @@
       "ocrDailyDescription": "Procesa a diario, a la hora indicada, las capturas acumuladas",
       "addTimeAria": "Añadir una hora",
       "removeTimeAria": "Quitar la última hora añadida"
+    },
+    "downloadSources": {
+      "title": "Fuentes de descarga",
+      "description": "Para modelos, el motor de IA y los componentes de OCR. Usa un espejo si es difícil acceder a las fuentes oficiales. El cambio se aplica a las nuevas descargas.",
+      "sourceLabel": "Fuente de descarga",
+      "modes": {
+        "official": "Oficial",
+        "mirror": "Espejos",
+        "custom": "Espejos personalizados"
+      },
+      "officialDescription": "Descargar directamente desde Hugging Face y GitHub.",
+      "mirrorDescription": "La opción predefinida usa espejos de terceros: HF-Mirror, GH-Proxy y NuGet de Huawei Cloud.",
+      "huggingfaceLabel": "URL del espejo de Hugging Face",
+      "huggingfaceHelp": "Introduce la URL base del espejo, como https://hf-mirror.com.",
+      "githubLabel": "URL del proxy de descarga de GitHub",
+      "githubHelp": "El proxy debe aceptar la URL completa de descarga de GitHub después de su dirección.",
+      "save": "Guardar direcciones",
+      "saving": "Guardando fuentes de descarga…",
+      "saveFailed": "No se pudieron guardar las fuentes de descarga. Inténtalo de nuevo.",
+      "invalidUrl": "Introduce una dirección HTTP o HTTPS sin datos de inicio de sesión, parámetros ni fragmentos.",
+      "change": "Cambiar fuente de descarga",
+      "nugetLabel": "URL de descarga de paquetes NuGet",
+      "nugetHelp": "Introduce la dirección base de paquetes NuGet (PackageBaseAddress) para los componentes de OCR de Windows."
     }
   },
   "devices": {

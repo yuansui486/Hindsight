@@ -31,6 +31,8 @@ const DailyTab = lazy(() => import("@app/pages/AISummary/tabs/DailyTab"));
 const WeeklyTab = lazy(() => import("@app/pages/AISummary/tabs/WeeklyTab"));
 const MonthlyTab = lazy(() => import("@app/pages/AISummary/tabs/MonthlyTab"));
 const ChatPage = lazy(() => import("@app/pages/Chat/ChatPage"));
+const HistoryPage = lazy(() => import("@app/pages/History/HistoryPage"));
+const HistoryStatsTab = lazy(() => import("@app/pages/History/StatsTab"));
 const SearchPage = lazy(() => import("@app/pages/Search/SearchPage"));
 const DebugTab = lazy(() => import("@app/pages/AISummary/tabs/DebugTab"));
 const AISettingsPage = lazy(() => import("@app/pages/AISettings/AISettingsPage"));
@@ -43,6 +45,7 @@ const DevicesPage = lazy(() => import("@app/pages/Devices/DevicesPage"));
 const CategoriesPage = lazy(() => import("@app/pages/Categories/CategoriesPage"));
 const ListTab = lazy(() => import("@app/pages/Categories/tabs/ListTab"));
 const AppsPage = lazy(() => import("@app/pages/Apps/AppsPage"));
+const SitesPage = lazy(() => import("@app/pages/Sites/SitesPage"));
 const SettingsPage = lazy(() => import("@app/pages/Settings/SettingsPage"));
 const GeneralTab = lazy(() => import("@app/pages/Settings/tabs/GeneralTab"));
 const AppearanceTab = lazy(() => import("@app/pages/Settings/tabs/AppearanceTab"));
@@ -58,12 +61,16 @@ function DemoLayout() {
           <Route path={ROUTES.today} element={<TodayPage />} />
           <Route path={ROUTES.week} element={<WeekPage />} />
           <Route path={ROUTES.month} element={<MonthPage />} />
+          <Route path={ROUTES.history} element={<HistoryPage />}>
+            <Route index element={<HistoryStatsTab />} />
+            <Route path="search" element={<SearchPage />} />
+          </Route>
           <Route path={ROUTES.chat} element={<ChatPage />} />
           <Route path={ROUTES.aiSummary} element={<AISummaryPage />}>
             <Route index element={<DailyTab />} />
             <Route path="week" element={<WeeklyTab />} />
             <Route path="month" element={<MonthlyTab />} />
-            <Route path="search" element={<SearchPage />} />
+            <Route path="search" element={<Navigate to={`${ROUTES.history}/search`} replace />} />
             <Route path="debug" element={<DebugTab />} />
           </Route>
           <Route path={ROUTES.aiSettings} element={<AISettingsPage />}>
@@ -77,6 +84,7 @@ function DemoLayout() {
           <Route path={ROUTES.categories} element={<CategoriesPage />}>
             <Route index element={<ListTab />} />
             <Route path="apps" element={<AppsPage />} />
+            <Route path="sites" element={<SitesPage />} />
           </Route>
           {/* 与主程序一致:旧的独立「应用」页并入分类页 tab 后仍可访问 */}
           <Route
