@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Info, RefreshCw, Scale, User } from "lucide-react";
 import { UpdateIcon } from "../../../components/icons/UpdateIcon";
 import { getVersion } from "@tauri-apps/api/app";
+import { ReleaseNotesDialog } from "../../../components/ReleaseNotesDialog/ReleaseNotesDialog";
 import { Section } from "../../../components/FormLayout/Section";
 import { Row } from "../../../components/FormLayout/Row";
 import { Toggle } from "../../../components/FormControls/Toggle";
@@ -17,6 +18,7 @@ type UpdateInterval = "daily" | "weekly" | "monthly" | "onstartup";
 export default function AboutTab() {
   const { t } = useTranslation();
   const [appVersion, setAppVersion] = useState<string>("");
+  const [notesOpen, setNotesOpen] = useState(false);
   const { settings, update: updateSettings } = useSettings();
   const { phase, errorMsg, checkNow } = useUpdater();
 
@@ -58,19 +60,19 @@ export default function AboutTab() {
     <>
       <div className={styles.hero}>
         <img className={styles.logo} src={logoUrl} alt="" aria-hidden draggable={false} />
-        <div className={styles.heroText}>
-          <div className={styles.appName}>Hindsight</div>
-          <div className={styles.version}>
-            {t("settings.about.subtitle", {
-              version: appVersion || "0.1.0",
-            })}
-          </div>
-        </div>
+        <div className={styles.appName}>Hindsight</div>
       </div>
 
       <Section title={t("settings.about.update.title")} icon={UpdateIcon}>
         <Row label={t("settings.about.update.currentVersionLabel")} description={statusText}>
-          <span className={styles.value}>{appVersion || "—"}</span>
+          <button
+            type="button"
+            className={`${styles.link} ${styles.versionLink}`}
+            onClick={() => setNotesOpen(true)}
+            title={t("settings.about.update.changelogTitle")}
+          >
+            {appVersion || "—"}
+          </button>
           <button
             type="button"
             className={styles.checkBtn}
@@ -126,6 +128,8 @@ export default function AboutTab() {
           <span className={styles.value}>MIT</span>
         </Row>
       </Section>
+
+      {notesOpen && <ReleaseNotesDialog version={appVersion} onClose={() => setNotesOpen(false)} />}
     </>
   );
 }
