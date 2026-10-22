@@ -122,6 +122,24 @@ pub fn set_dock_icon_visible(app: &tauri::AppHandle, visible: bool) {
 #[cfg(not(target_os = "macos"))]
 pub fn set_dock_icon_visible(_app: &tauri::AppHandle, _visible: bool) {}
 
+/// 在任务栏按钮上叠 `dot`，`dot` 为 `None` 时去掉。
+#[cfg(target_os = "windows")]
+pub fn set_taskbar_dot(
+    window: &tauri::Window,
+    dot: Option<tauri::image::Image<'static>>,
+) -> tauri::Result<()> {
+    window.set_overlay_icon(dot)
+}
+
+/// 非 Windows 平台：no-op（只有 Windows 的任务栏按钮能叠图）。
+#[cfg(not(target_os = "windows"))]
+pub fn set_taskbar_dot(
+    _window: &tauri::Window,
+    _dot: Option<tauri::image::Image<'static>>,
+) -> tauri::Result<()> {
+    Ok(())
+}
+
 /// Auto start argument for Windows platform.
 pub const AUTOSTART_ARG: &str = "--autostart";
 
@@ -211,19 +229,89 @@ pub fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         // User clicked the app icon in the Dock (macOS Reopen event). When minimized to tray,
         // the app normally switches to Accessory policy without a Dock icon; this serves as a fallback
         // in case the policy switch failed, ensuring the main window is restored or recreated.
-        tauri::RunEvent::Reopen {
-            has_visible_windows: false,
-            ..
-        } => {
+        // 不用事件里的 has_visible_windows：AppKit 可能把一直显示着的岛也算进去，那样点 Dock 图标就
+        // 叫不回主窗口了
+        tauri::RunEvent::Reopen { .. } if !shows_a_window(app) => {
             crate::bootstrap::show_or_recreate_main(app);
         }
         _ => {}
     }
 }
 
+/// 有没有显示着的窗口，岛不算。
+#[cfg(target_os = "macos")]
+fn shows_a_window(app: &tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.webview_windows().iter().any(|(label, window)| {
+        label != crate::island::LABEL && window.is_visible().unwrap_or(false)
+    })
+}
+
 /// Non-macOS: no-op (Reopen is a macOS Dock concept).
 #[cfg(not(target_os = "macos"))]
 pub fn handle_run_event(_app: &tauri::AppHandle, _event: tauri::RunEvent) {}
+
+/// 任何一个窗口最小化或者还原时调 `on_change`。在主线程上调一次。
+///
+/// 只有 macOS 要这样听：tao 在 macOS 上最小化、还原时不发窗口事件。Windows 上最小化会发
+/// `Resized`，这里什么都不做。
+#[cfg(target_os = "macos")]
+pub fn on_minimize_changed(on_change: impl Fn() + 'static) {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2::{define_class, msg_send, sel, DefinedClass, MainThreadMarker, MainThreadOnly};
+    use objc2_app_kit::{NSWindowDidDeminiaturizeNotification, NSWindowDidMiniaturizeNotification};
+    use objc2_foundation::{NSNotification, NSNotificationCenter, NSObject};
+
+    struct Ivars {
+        on_change: Box<dyn Fn()>,
+    }
+
+    define_class!(
+        #[unsafe(super(NSObject))]
+        #[thread_kind = MainThreadOnly]
+        #[name = "HindsightMinimizeObserver"]
+        #[ivars = Ivars]
+        struct Observer;
+
+        impl Observer {
+            #[unsafe(method(minimizeChanged:))]
+            fn minimize_changed(&self, _notification: &NSNotification) {
+                (self.ivars().on_change)();
+            }
+        }
+    );
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        log::warn!("platform: cannot watch minimizing: not on the main thread");
+        return;
+    };
+    let this = Observer::alloc(mtm).set_ivars(Ivars {
+        on_change: Box::new(on_change),
+    });
+    let observer: Retained<Observer> = unsafe { msg_send![super(this), init] };
+    let receiver: &AnyObject = &observer;
+    let center = NSNotificationCenter::defaultCenter();
+    // SAFETY: the observer has a `minimizeChanged:` method, and is never released (see below)
+    unsafe {
+        for name in [
+            NSWindowDidMiniaturizeNotification,
+            NSWindowDidDeminiaturizeNotification,
+        ] {
+            center.addObserver_selector_name_object(
+                receiver,
+                sel!(minimizeChanged:),
+                Some(name),
+                None,
+            );
+        }
+    }
+    // 通知中心不持有观察者：留着它，和 app 一样长
+    std::mem::forget(observer);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn on_minimize_changed(_on_change: impl Fn() + 'static) {}
 
 // ───────────── webview 电源纪律：Windows 挂起 / 恢复（其余平台 no-op） ─────────────
 //

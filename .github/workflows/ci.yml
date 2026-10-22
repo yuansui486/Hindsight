@@ -76,6 +76,9 @@ jobs:
       - name: Release tooling tests
         run: node --test scripts/release.test.mjs
 
+      - name: Type check the web demo
+        run: npx tsc --noEmit -p web
+
       - name: Unit tests
         run: npm test
 

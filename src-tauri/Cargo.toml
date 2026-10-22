@@ -1,8 +1,9 @@
 [package]
 name = "hindsight"
-version = "0.9.4"
+version = "0.10.1"
 description = "Privacy-first activity tracking and AI summaries for desktop"
 authors = ["Tomotsugu-dev <heroburnning@gmail.com>"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 [lib]
@@ -22,14 +23,18 @@ tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-os = "2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# raw_value: plugin query results are written as JSON text while they are read, so their size can
+# be limited in bytes
+serde_json = { version = "1", features = ["raw_value"] }
 serde_with = "3"
 xcap = "0.4"
 
 # Phase 1
 tokio = { version = "1", features = ["full"] }
-tokio-rusqlite = "0.6"
-rusqlite = { version = "0.32", features = ["bundled"] }
+tokio-rusqlite = "0.8"
+# fallible_uint: read and write u64 and usize, with an error when a value does not fit in i64
+# hooks: the authorizer and the time limit for plugin SQL. limits: the limits on plugin databases
+rusqlite = { version = "0.40", features = ["bundled", "fallible_uint", "hooks", "limits"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1"
 dirs = "5"
@@ -97,8 +102,10 @@ windows-core = "0.61"
 plist = "1"
 icns = "0.3"
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["NSRunningApplication", "NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphics"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSData", "NSDictionary", "NSArray", "NSURL", "NSError", "NSEnumerator", "NSValue", "NSRange"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSRunningApplication", "NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphics", "NSApplication", "NSColor", "NSEvent", "NSPanel", "NSResponder", "NSScreen", "NSTrackingArea", "NSView", "NSWindow", "objc2-core-graphics", "objc2-quartz-core"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSString", "NSData", "NSDictionary", "NSArray", "NSURL", "NSError", "NSEnumerator", "NSValue", "NSRange", "NSGeometry", "NSNotification"] }
+# The island's shapes and their animation: a Core Animation mask on the island window
+objc2-quartz-core = { version = "0.3", default-features = false, features = ["CALayer", "CATransaction", "CAMediaTimingFunction", "objc2-core-foundation", "objc2-core-graphics"] }
 # 系统 Vision framework OCR(ANE)——macOS 原生引擎,零模型下载、零 onnxruntime 依赖
 objc2-vision = "0.3"
 screencapturekit = { version = "2.1", features = ["macos_14_0"] }

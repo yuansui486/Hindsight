@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use tauri::{App, AppHandle, Manager};
 
-use crate::capture::CaptureService;
+use crate::capture::{CaptureService, FocusChange};
 use crate::device::{self, DeviceMeta};
 use crate::repo::devices;
 use crate::repo::settings::Settings;
@@ -171,11 +171,13 @@ pub async fn init_capture_service(
     pool: DbPool,
     memory: Option<crate::memory::MemoryDb>,
     cfg: &Settings,
+    focus_tx: tokio::sync::mpsc::Sender<FocusChange>,
 ) -> Arc<CaptureService> {
     let svc = Arc::new(CaptureService::new(
         pool,
         memory,
         cfg.capture_interval_seconds,
+        focus_tx,
     ));
     svc.set_work_hours(cfg.work_hours_enabled, cfg.work_ranges.clone())
         .await;
@@ -268,7 +270,7 @@ fn remember_geometry(win: &tauri::WebviewWindow) {
 /// 最小化（仅 Windows 有动作）：挂起；还原：恢复。macOS 最小化时 WKWebView
 /// 自带渲染停止 + 亚秒定时器节流（实测），无需干预。
 ///
-/// 非托盘模式：放行关闭，app 正常退出（ExitRequested 不拦）。
+/// 非托盘模式：关主窗口就退出 app。插件后台窗口开着时，app 不会自己退出。
 fn install_window_handlers(window: &tauri::WebviewWindow) {
     let win = window.clone();
     window.on_window_event(move |event| match event {
@@ -286,6 +288,7 @@ fn install_window_handlers(window: &tauri::WebviewWindow) {
                 platform::schedule_webview_suspend(&win);
             }
         }
+        tauri::WindowEvent::CloseRequested { .. } => win.app_handle().exit(0),
         // Windows：最小化 → 挂起，还原 → 恢复。Resized 高频触发，但 resume
         // 内部有"确实请求过挂起才动手"的原子门，拖拽缩放不会反复跨线程调 COM。
         tauri::WindowEvent::Resized(_) => {
@@ -364,6 +367,9 @@ fn tray_labels(lang: &str) -> (&'static str, &'static str) {
     match lang {
         "ja" => ("メインウィンドウを表示", "終了"),
         "en" => ("Show Window", "Quit"),
+        "tw" => ("顯示主視窗", "退出"),
+        "pt" => ("Mostrar janela", "Sair"),
+        "es" => ("Mostrar ventana", "Salir"),
         _ => ("显示主窗口", "退出"),
     }
 }
@@ -378,6 +384,81 @@ pub fn set_tray_labels(
     state.show.set_text(show).map_err(|e| e.to_string())?;
     state.quit.set_text(quit).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 托盘图标的两张图：平时的，和右上角带点的。用户还没点开过「设置 → 插件」时用带点的。
+pub struct TrayIcons {
+    tray: tauri::tray::TrayIcon,
+    plain: tauri::image::Image<'static>,
+    dotted: tauri::image::Image<'static>,
+    as_template: bool,
+}
+
+/// 托盘和任务栏上的点的颜色。macOS 的托盘图标是 template，那里的点由系统按菜单栏上色。
+const DOT_COLOR: [u8; 3] = [255, 59, 48];
+
+/// 加上或去掉托盘图标上的点，以及任务栏按钮上的红点（Windows）。
+#[tauri::command]
+pub fn set_plugins_badge(
+    window: tauri::Window,
+    icons: tauri::State<'_, TrayIcons>,
+    show: bool,
+) -> Result<(), String> {
+    let icon = if show { &icons.dotted } else { &icons.plain };
+    // 只用 set_icon 的话，macOS 上图标不再是 template
+    icons
+        .tray
+        .set_icon_with_as_template(Some(icon.clone()), icons.as_template)
+        .map_err(|e| e.to_string())?;
+    platform::set_taskbar_dot(&window, show.then(|| dot_image(32, DOT_COLOR)))
+        .map_err(|e| e.to_string())
+}
+
+/// 返回在 `icon` 右上角画了点的图。点外面挖空一圈，点和图标才分得开。
+fn with_dot(icon: &tauri::image::Image<'_>, color: [u8; 3]) -> tauri::image::Image<'static> {
+    let width = icon.width();
+    let size = width as f32;
+    let radius = size * 0.16;
+    let center = (size - radius, radius);
+    let clear = radius + size * 0.07;
+    let mut rgba = icon.rgba().to_vec();
+    paint_dot(&mut rgba, width, center, radius, clear, color);
+    tauri::image::Image::new_owned(rgba, width, icon.height())
+}
+
+/// Returns a `size` × `size` image with only a round dot.
+fn dot_image(size: u32, color: [u8; 3]) -> tauri::image::Image<'static> {
+    let mut rgba = vec![0; (size * size * 4) as usize];
+    let half = size as f32 / 2.0;
+    paint_dot(&mut rgba, size, (half, half), half - 0.5, half - 0.5, color);
+    tauri::image::Image::new_owned(rgba, size, size)
+}
+
+/// 在 `rgba` 上画圆心 `(cx, cy)`、半径 `radius` 的点，点外面到 `clear` 为止挖空。
+fn paint_dot(
+    rgba: &mut [u8],
+    width: u32,
+    (cx, cy): (f32, f32),
+    radius: f32,
+    clear: f32,
+    color: [u8; 3],
+) {
+    for (i, pixel) in rgba.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        let x = (i as u32 % width) as f32 + 0.5;
+        let y = (i as u32 / width) as f32 + 0.5;
+        let distance = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+        // 边上留半个像素过渡，不然有锯齿
+        let below = pixel[3] as f32 / 255.0 * (distance - clear + 0.5).clamp(0.0, 1.0);
+        let dot = (radius + 0.5 - distance).clamp(0.0, 1.0);
+        let alpha = dot + below * (1.0 - dot);
+        if alpha > 0.0 {
+            for (channel, &target) in pixel[..3].iter_mut().zip(&color) {
+                let mixed = target as f32 * dot + *channel as f32 * below * (1.0 - dot);
+                *channel = (mixed / alpha).round() as u8;
+            }
+        }
+        pixel[3] = (alpha * 255.0).round() as u8;
+    }
 }
 
 /// 系统托盘：图标用主窗口同款。左键单击 toggle 显示 / 隐藏；
@@ -417,12 +498,13 @@ fn install_tray_icon(app: &mut App) -> tauri::Result<()> {
     let (tray_icon, as_template) = (
         app.default_window_icon()
             .cloned()
-            .expect("default_window_icon 必存在（Tauri 资源缺失）"),
+            .expect("default_window_icon 必存在（Tauri 资源缺失）")
+            .to_owned(),
         false,
     );
 
-    let _tray = TrayIconBuilder::with_id("hindsight-tray")
-        .icon(tray_icon)
+    let tray = TrayIconBuilder::with_id("hindsight-tray")
+        .icon(tray_icon.clone())
         // 非 macOS 平台此标志被忽略
         .icon_as_template(as_template)
         .tooltip("Hindsight")
@@ -432,6 +514,12 @@ fn install_tray_icon(app: &mut App) -> tauri::Result<()> {
         .on_menu_event(handle_tray_menu_event)
         .on_tray_icon_event(handle_tray_icon_event)
         .build(app)?;
+    app.manage(TrayIcons {
+        tray,
+        dotted: with_dot(&tray_icon, DOT_COLOR),
+        plain: tray_icon,
+        as_template,
+    });
     Ok(())
 }
 
@@ -533,7 +621,61 @@ pub fn spawn_backfill_tasks(pool: DbPool) {
 
 #[cfg(test)]
 mod tests {
-    use super::silent_autostart;
+    use super::{dot_image, silent_autostart, tray_labels, with_dot};
+
+    // 点在右上角，点外面一圈是空的，离点远的像素不变
+    #[test]
+    fn the_dot_goes_in_the_top_right_corner() {
+        let gray = [100, 100, 100, 255];
+        let icon = tauri::image::Image::new_owned(gray.repeat(44 * 44), 44, 44);
+        let dotted = with_dot(&icon, [255, 0, 0]);
+        let at = |x: usize, y: usize| &dotted.rgba()[(y * 44 + x) * 4..][..4];
+
+        assert_eq!(at(36, 7), [255, 0, 0, 255]);
+        assert_eq!(at(36, 16)[3], 0);
+        assert_eq!(at(10, 30), gray);
+    }
+
+    // 任务栏上的点占满整张图，角上是空的
+    #[test]
+    fn the_taskbar_dot_fills_its_image() {
+        let dot = dot_image(32, [255, 0, 0]);
+        let at = |x: usize, y: usize| &dot.rgba()[(y * 32 + x) * 4..][..4];
+
+        assert_eq!(at(16, 16), [255, 0, 0, 255]);
+        assert_eq!(at(16, 1)[3], 255);
+        assert_eq!(at(0, 0)[3], 0);
+    }
+
+    // system_language 返回的每种语言，托盘文案都和前端的 tray.show / tray.quit 一样。
+    // 前端加了新语言、这里没跟上时，语言数对不上，测试挂掉
+    #[test]
+    fn tray_labels_match_every_system_language() {
+        let cases = [
+            ("zh", ("显示主窗口", "退出")),
+            ("tw", ("顯示主視窗", "退出")),
+            ("ja", ("メインウィンドウを表示", "終了")),
+            ("pt", ("Mostrar janela", "Sair")),
+            ("es", ("Mostrar ventana", "Salir")),
+            ("en", ("Show Window", "Quit")),
+        ];
+        for (lang, labels) in cases {
+            assert_eq!(tray_labels(lang), labels, "{lang}");
+        }
+
+        let locales = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/i18n/locales");
+        let count = std::fs::read_dir(locales)
+            .unwrap()
+            .filter(|entry| {
+                entry.as_ref().unwrap().path().extension() == Some(std::ffi::OsStr::new("json"))
+            })
+            .count();
+        assert_eq!(
+            count,
+            cases.len(),
+            "前端的语言数变了：tray_labels 和 system_language 也要加上新语言"
+        );
+    }
 
     // 用户手动启动：不管「静默启动」开没开，都要看到窗口
     #[test]

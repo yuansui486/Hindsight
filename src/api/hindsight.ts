@@ -809,6 +809,8 @@ export const api = {
   /** 把托盘菜单文案同步成当前 UI 语言（show=显示主窗口 / quit=退出 的译文） */
   setTrayLabels: (show: string, quit: string) =>
     invoke<void>("set_tray_labels", { show, quit }),
+  /** 加上或去掉托盘、任务栏上的红点 */
+  setPluginsBadge: (show: boolean) => invoke<void>("set_plugins_badge", { show }),
   getDayHours: (dayOffset: number, deviceId?: string) =>
     invoke<HourSlot[]>("get_day_hours", { dayOffset, deviceId }),
   getDayApps: (dayOffset: number, limit?: number, deviceId?: string) =>
@@ -870,6 +872,12 @@ export const api = {
     invoke<void>("unassign_app", { processName }),
   listUnclassifiedApps: (daysBack?: number) =>
     invoke<UnclassifiedApp[]>("list_unclassified_apps", { daysBack }),
+  /** 还是中文原名的默认分类、默认大类换成这些译名（id → 译名）。只换一次，见 ADR-0015 */
+  translateDefaultCategoryNames: (
+    categories: Record<string, string>,
+    superCategories: Record<string, string>,
+  ) =>
+    invoke<void>("translate_default_category_names", { categories, superCategories }),
   // —— v28 大类（super-category）—— 本地 only，sync 暂未接入
   listSuperCategories: () =>
     invoke<SuperCategory[]>("list_super_categories"),

@@ -15,6 +15,19 @@ export default defineConfig(async () => ({
     entries: ["index.html"],
   },
 
+  // Four pages: the main window, the plugin background window, a plugin page's own window, and
+  // the island
+  build: {
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        pluginBackground: "src/plugin-background/index.html",
+        pluginWindow: "src/plugin-window/index.html",
+        island: "src/island/index.html",
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

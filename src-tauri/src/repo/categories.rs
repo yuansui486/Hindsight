@@ -13,7 +13,10 @@ use std::collections::HashMap;
 
 use crate::error::{Error, Result};
 use crate::repo::outbox::{enqueue, OutboxEntity, OutboxOp};
-use crate::repo::sql::{FROM_ACTIVITY_GROUP_CATEGORY, FROM_MEMBER_GROUP};
+use crate::repo::sql::{
+    from_stats_category_sql, matching_rule_host_sql, FROM_ACTIVITY_GROUP_CATEGORY,
+    FROM_MEMBER_GROUP,
+};
 use crate::storage::{utc_now_rfc3339, DbPool, SqliteResultExt};
 
 /// A `categories` row plus the process names currently classified under it.
@@ -261,9 +264,11 @@ pub async fn update(pool: &DbPool, id: &str, patch: CategoryPatch) -> Result<()>
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .unwrap_or(cur_icon);
+            // A new name sets is_default_name to 0 (ADR-0015).
             let n = tx
                 .execute(
-                    "UPDATE categories SET name = ?1, color = ?2, icon = ?3, updated_at = ?4
+                    "UPDATE categories SET name = ?1, color = ?2, icon = ?3, updated_at = ?4,
+                                           is_default_name = is_default_name AND name IS ?1
                         WHERE id = ?5 AND (name IS NOT ?1 OR color IS NOT ?2 OR icon IS NOT ?3)",
                     rusqlite::params![next_name, next_color, next_icon, updated_at, id],
                 )
@@ -356,7 +361,7 @@ pub async fn delete(pool: &DbPool, id: &str) -> Result<()> {
     let updated_at = utc_now_rfc3339();
     // `Ok(Err(msg))` = business rejection, turned into `Error::InvalidInput` below.
     // Real db failures still go through `?`, so `InvalidInput` never ends up
-    // wrapped in `tokio_rusqlite::Error::Other`.
+    // wrapped in `DbError::Other`.
     let outcome: std::result::Result<(), &'static str> = pool
         .0
         .call(move |conn| {
@@ -529,6 +534,67 @@ pub async fn list_unclassified(pool: &DbPool, days_back: u32) -> Result<Vec<Uncl
             last_seen_at,
         })
         .collect())
+}
+
+/// The category of a focused window, and the super-category it is in. See [`classify`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FocusCategory {
+    pub id: String,
+    pub name: String,
+    /// Hex color `#rrggbb`
+    pub color: String,
+    /// Lucide icon name, the same as in the main window
+    pub icon: String,
+    /// The id, name, color and icon of the super-category
+    pub super_category: Option<(String, String, String, String)>,
+}
+
+/// Finds the category of an app and website: first a website rule for `url_host`, then the
+/// category of the app's group. If neither has one, it is `other`.
+pub async fn classify(
+    pool: &DbPool,
+    process_name: &str,
+    url_host: Option<&str>,
+) -> Result<Option<FocusCategory>> {
+    let process_name = process_name.to_string();
+    let url_host = url_host.map(str::to_string);
+    let category = pool
+        .0
+        .call(move |conn| {
+            let sql = format!(
+                "WITH RECURSIVE {hosts}
+                 SELECT k.id, k.name, k.color, k.icon, s.id, s.name, s.color, s.icon
+                 {from}
+                 JOIN categories k ON k.id = COALESCE(c.id, 'other') AND k.deleted_at IS NULL
+                 LEFT JOIN super_categories s
+                   ON s.id = k.super_category_id AND s.deleted_at IS NULL",
+                hosts = matching_rule_host_sql("SELECT ?1"),
+                from = from_stats_category_sql("(SELECT ?2 AS process_name, ?1 AS url_host)"),
+            );
+            conn.prepare_cached(&sql)
+                .db()?
+                .query_row(rusqlite::params![url_host, process_name], |r| {
+                    let super_id: Option<String> = r.get(4)?;
+                    let super_name: Option<String> = r.get(5)?;
+                    let super_color: Option<String> = r.get(6)?;
+                    let super_icon: Option<String> = r.get(7)?;
+                    Ok(FocusCategory {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        color: r.get(2)?,
+                        icon: r.get(3)?,
+                        super_category: super_id
+                            .zip(super_name)
+                            .zip(super_color)
+                            .zip(super_icon)
+                            .map(|(((id, name), color), icon)| (id, name, color, icon)),
+                    })
+                })
+                .optional()
+                .db()
+        })
+        .await?;
+    Ok(category)
 }
 
 #[cfg(test)]
@@ -730,6 +796,40 @@ mod tests {
             })
             .await
             .unwrap()
+    }
+
+    async fn is_default_name(pool: &DbPool, id: &str) -> bool {
+        let id = id.to_string();
+        pool.0
+            .call(move |conn| {
+                let v = conn.query_row(
+                    "SELECT is_default_name FROM categories WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| r.get::<_, bool>(0),
+                )?;
+                Ok(v)
+            })
+            .await
+            .unwrap()
+    }
+
+    /// 用户改名后 is_default_name 变成 0;只改颜色不变。
+    #[tokio::test]
+    async fn update_clears_is_default_name_only_on_rename() {
+        let pool = fresh_test_pool().await;
+        let patch = |name: Option<&str>, color: Option<&str>| CategoryPatch {
+            name: name.map(String::from),
+            color: color.map(String::from),
+            icon: None,
+        };
+        update(&pool, "code", patch(None, Some("#000000")))
+            .await
+            .unwrap();
+        assert!(is_default_name(&pool, "code").await, "只改颜色不变");
+        update(&pool, "code", patch(Some("Dev"), None))
+            .await
+            .unwrap();
+        assert!(!is_default_name(&pool, "code").await, "改名后变成 0");
     }
 
     // ---------- create ----------
@@ -1336,5 +1436,37 @@ mod tests {
         let pos_zombie = names.iter().position(|n| *n == "ZombieApp").unwrap();
         let pos_free = names.iter().position(|n| *n == "FreeApp").unwrap();
         assert!(pos_zombie < pos_free, "应按分钟数降序: {names:?}");
+    }
+
+    /// 和统计页一样算：应用所在组的分类带上大类；网站规则压过应用的分类，
+    /// 子域名用上一级的规则；隐藏的应用是 hidden；没归类的是 other。
+    #[tokio::test]
+    async fn classify_matches_the_statistics() {
+        let pool = fresh_test_pool().await;
+        assign_app(&pool, "Code", "code").await.unwrap();
+        assign_app(&pool, "Chrome", "browse").await.unwrap();
+        assign_app(&pool, "Secret", "hidden").await.unwrap();
+        crate::repo::site_rules::set(&pool, "youtube.com", "talk")
+            .await
+            .unwrap();
+        let of = |app: &'static str, host: Option<&'static str>| {
+            let pool = pool.clone();
+            async move {
+                let c = classify(&pool, app, host).await.unwrap().unwrap();
+                (c.id, c.super_category.map(|(id, _, _, _)| id))
+            }
+        };
+
+        assert_eq!(of("Code", None).await, ("code".into(), Some("work".into())));
+        assert_eq!(
+            of("Chrome", Some("github.com")).await,
+            ("browse".into(), Some("browse".into()))
+        );
+        assert_eq!(
+            of("Chrome", Some("www.youtube.com")).await,
+            ("talk".into(), Some("social".into()))
+        );
+        assert_eq!(of("Secret", None).await.0, "hidden");
+        assert_eq!(of("NeverSeen", None).await, ("other".into(), None));
     }
 }
